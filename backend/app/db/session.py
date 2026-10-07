@@ -1,43 +1,17 @@
-import os
-from contextlib import contextmanager
-
+# สร้าง engine และ session ของฐานข้อมูล (CON-TECH-01)
 from sqlalchemy import create_engine
-from sqlalchemy.pool import StaticPool
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
-from app.db.models import Base
+from app.config import DATABASE_URL
 
-
-# รองรับ CON-TECH-01 และให้เครื่องทดสอบใช้ SQLite ในหน่วยความจำตาม plan.md
-def get_database_url() -> str:
-    return os.getenv("DATABASE_URL", "sqlite:///:memory:")
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
 
-def build_engine():
-    database_url = get_database_url()
-    if database_url.startswith("sqlite://"):
-        return create_engine(
-            database_url,
-            future=True,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-    return create_engine(database_url, future=True)
-
-
-engine = build_engine()
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-Base.metadata.create_all(bind=engine)
-
-
-@contextmanager
-def get_session() -> Session:
-    session = SessionLocal()
+def get_db():
+    """ส่ง session ให้ API แต่ละตัว แล้วปิดเมื่อจบ"""
+    db = SessionLocal()
     try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
+        yield db
     finally:
-        session.close()
+        db.close()
